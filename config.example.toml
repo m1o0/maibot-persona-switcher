@@ -1,0 +1,15 @@
+[plugin]
+enabled = true
+config_version = "1.1.0"
+
+[auto_restore]
+# 是否允许「限时生效」。关掉后即使页面上选了时长也不会自动恢复，只能手动切回。
+enabled = true
+
+# 应用存档时不填时长就用这个值。0 = 不自动恢复（永久生效）。
+default_minutes = 0
+
+# 插件重启或热重载后发现限时已经过点时的做法：
+#   restore - 立刻恢复原人设（默认，行为最符合直觉）
+#   keep    - 保持现状，只在界面上提示，由你决定什么时候切回
+on_restart = "restore"

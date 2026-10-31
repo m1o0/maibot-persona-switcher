@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>人设存档与切换</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 20px;
+    color: var(--maibot-foreground);
+    background: transparent;
+    font-family: var(--maibot-font-body, system-ui, sans-serif);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; font-weight: 650; }
+  h2 { font-size: 15px; margin: 0; font-weight: 600; }
+  .sub { color: var(--maibot-muted); font-size: 12.5px; margin: 0 0 18px; }
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--maibot-border); padding-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 7px 15px; border: 1px solid var(--maibot-border);
+    border-radius: var(--maibot-radius, 8px); background: var(--maibot-soft);
+    color: var(--maibot-foreground); cursor: pointer; font: inherit; font-size: 13px;
+  }
+  .tab[aria-selected="true"] {
+    background: var(--maibot-primary); color: var(--maibot-primary-foreground);
+    border-color: var(--maibot-primary); font-weight: 600;
+  }
+  .layout { display: grid; grid-template-columns: minmax(230px, 300px) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--maibot-surface); border: 1px solid var(--maibot-border);
+    border-radius: var(--maibot-radius, 10px); padding: 16px;
+  }
+  .card + .card { margin-top: 14px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .list { display: flex; flex-direction: column; gap: 8px; max-height: 460px; overflow: auto; }
+  .item {
+    padding: 10px 12px; border: 1px solid var(--maibot-border);
+    border-radius: var(--maibot-radius, 8px); background: var(--maibot-soft);
+    cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%;
+  }
+  .item:hover { filter: brightness(.97); }
+  .item[aria-current="true"] { border-color: var(--maibot-primary); box-shadow: inset 0 0 0 1px var(--maibot-primary); }
+  .item .name { font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .item .meta { color: var(--maibot-muted); font-size: 12px; margin-top: 3px; }
+  .badge {
+    display: inline-flex; padding: 1px 7px; border: 1px solid var(--maibot-border);
+    border-radius: 999px; background: var(--maibot-surface);
+    font-size: 11px; font-weight: 500; color: var(--maibot-muted);
+  }
+  .badge.on { border-color: var(--maibot-primary); color: var(--maibot-primary); }
+  input[type=text], textarea, select {
+    width: 100%; padding: 8px 11px; font: inherit; font-size: 13px;
+    color: var(--maibot-foreground); background: var(--maibot-soft);
+    border: 1px solid var(--maibot-border); border-radius: var(--maibot-radius, 8px);
+  }
+  textarea { min-height: 120px; resize: vertical; line-height: 1.65; font-family: var(--maibot-font-mono, ui-monospace, monospace); font-size: 12.5px; }
+  input[type=text]:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--maibot-primary); outline-offset: 1px;
+  }
+  button.act {
+    padding: 8px 16px; font: inherit; font-size: 13px; cursor: pointer;
+    border-radius: var(--maibot-radius, 8px); border: 1px solid var(--maibot-border);
+    background: var(--maibot-soft); color: var(--maibot-foreground);
+  }
+  button.act:hover:not(:disabled) { filter: brightness(.96); }
+  button.act:disabled { opacity: .5; cursor: not-allowed; }
+  button.act.main { background: var(--maibot-primary); color: var(--maibot-primary-foreground); border-color: var(--maibot-primary); font-weight: 600; }
+  button.act.warn { color: var(--maibot-danger); border-color: var(--maibot-danger); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row.end { justify-content: flex-end; }
+  .grow { flex: 1 1 190px; }
+  .field { margin-bottom: 12px; }
+  .label { font-size: 12.5px; color: var(--maibot-muted); margin-bottom: 5px; display: flex; justify-content: space-between; gap: 8px; }
+  .empty { color: var(--maibot-muted); font-size: 13px; padding: 22px 4px; text-align: center; }
+  .diff { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+  .diff th, .diff td { padding: 8px 10px; border-bottom: 1px solid var(--maibot-border); text-align: left; vertical-align: top; }
+  .diff th { color: var(--maibot-muted); font-weight: 500; }
+  .diff td.val { font-family: var(--maibot-font-mono, ui-monospace, monospace); font-size: 12px; max-width: 260px; }
+  .diff .old { color: var(--maibot-danger); }
+  .diff .new { color: var(--maibot-primary); }
+  pre.preview {
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+    font-family: var(--maibot-font-mono, ui-monospace, monospace);
+    font-size: 12.5px; line-height: 1.7; max-height: 300px; overflow: auto;
+    background: var(--maibot-soft); border: 1px solid var(--maibot-border);
+    border-radius: var(--maibot-radius, 8px); padding: 12px;
+  }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    padding: 10px 20px; border-radius: 999px; font-size: 13px;
+    background: var(--maibot-primary); color: var(--maibot-primary-foreground);
+    opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 99;
+    max-width: 84vw; text-align: center;
+  }
+  #toast.show { opacity: 1; }
+  #toast.err { background: var(--maibot-danger); color: #fff; }
+  .hint { color: var(--maibot-muted); font-size: 12px; margin-top: 6px; }
+  .stat { display: flex; gap: 18px; flex-wrap: wrap; color: var(--maibot-muted); font-size: 12.5px; }
+  .stat b { color: var(--maibot-foreground); font-weight: 600; }
+  details > summary { cursor: pointer; font-size: 13px; color: var(--maibot-muted); }
+  .active-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 16px; margin-bottom: 14px;
+    border: 1px solid var(--maibot-border); border-radius: var(--maibot-radius, 10px);
+    background: var(--maibot-surface);
+  }
+  .active-bar.on { border-color: var(--maibot-primary); box-shadow: inset 0 0 0 1px var(--maibot-primary); }
+  .active-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--maibot-muted); flex: 0 0 auto; }
+  .active-bar.on .dot { background: var(--maibot-primary); }
+  .active-bar .main-text { font-size: 13px; }
+  .active-bar .main-text b { font-weight: 650; }
+  .active-bar .spacer { flex: 1 1 auto; }
+  .active-bar .warn-text { color: var(--maibot-danger); font-size: 12px; }
+  select.mini { width: auto; min-width: 130px; padding: 6px 9px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<h1>人设存档与切换</h1>
+<p class="sub">存一份、随时换回来。只动人设字段，聊天频率与模型配置不碰；保存后配置会自动热重载。</p>
+
+<div class="active-bar" id="active-bar">
+  <span class="dot"></span>
+  <span class="main-text" id="active-text">正在读取生效状态…</span>
+  <span class="spacer"></span>
+  <span class="warn-text" id="active-warn"></span>
+  <button class="act" id="btn-cancel-timer" hidden>取消限时</button>
+  <button class="act" id="btn-restore-now" hidden>立刻恢复原人设</button>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" data-scope="full" aria-selected="true">整套人设</button>
+  <button class="tab" role="tab" data-scope="group" aria-selected="false">群聊人设</button>
+  <button class="tab" role="tab" data-scope="stream" aria-selected="false">聊天流人设</button>
+</div>
+
+<div id="panel-full" class="layout">
+  <div class="card">
+    <div class="head"><h2>存档</h2><span class="badge" id="count-full">0</span></div>
+    <div class="list" id="list-full"><div class="empty">加载中…</div></div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="head"><h2>当前线上人设</h2></div>
+      <div class="stat" id="live-stat"></div>
+      <div class="field" style="margin-top:14px">
+        <div class="label"><span>名字</span></div>
+        <input type="text" id="live-nickname" readonly>
+      </div>
+      <details><summary>查看完整内容</summary>
+        <div class="field" style="margin-top:10px"><div class="label"><span>人格设定</span></div><pre class="preview" id="pv-personality"></pre></div>
+        <div class="field"><div class="label"><span>行为风格</span></div><pre class="preview" id="pv-behavior"></pre></div>
+        <div class="field"><div class="label"><span>回复风格</span></div><pre class="preview" id="pv-reply"></pre></div>
+        <div class="field"><div class="label"><span>群聊通用提示词</span></div><pre class="preview" id="pv-group"></pre></div>
+        <div class="field"><div class="label"><span>私聊通用提示词</span></div><pre class="preview" id="pv-private"></pre></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="head"><h2>存一份新的</h2></div>
+      <div class="field"><div class="label"><span>存档名</span><span id="save-hint-full"></span></div>
+        <input type="text" id="save-name-full" placeholder="比如：温柔版、冷面助手、元气少女"></div>
+      <div class="field"><div class="label"><span>备注（可选）</span></div>
+        <input type="text" id="save-note-full" placeholder="这一版想解决什么问题"></div>
+      <div class="row end"><button class="act main" id="btn-save-full">保存当前人设为存档</button></div>
+    </div>
+    <div id="detail-full"></div>
+  </div>
+</div>
+
+<div id="panel-group" class="layout" hidden>
+  <div class="card">
+    <div class="head"><h2>群聊人设存档</h2><span class="badge" id="count-group">0</span></div>
+    <div class="list" id="list-group"><div class="empty">加载中…</div></div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="head"><h2>当前群聊通用提示词</h2><span class="badge" id="group-chars">0 字</span></div>
+      <pre class="preview" id="pv-group-live" style="max-height:340px"></pre>
+      <p class="hint">这段对所有群生效。想让某个群单独不同，用「聊天流人设」那一页。</p>
+    </div>
+    <div class="card">
+      <div class="head"><h2>把当前这段存成存档</h2></div>
+      <div class="field"><div class="label"><span>存档名</span></div>
+        <input type="text" id="save-name-group" placeholder="比如：正式版-v1、克制版"></div>
+      <div class="row end"><button class="act main" id="btn-save-group">保存群聊人设</button></div>
+    </div>
+    <div id="detail-group"></div>
+  </div>
+</div>
+
+<div id="panel-stream" class="layout" hidden>
+  <div class="card">
+    <div class="head"><h2>聊天流</h2><span class="badge" id="count-stream">0</span></div>
+    <div class="list" id="list-stream"><div class="empty">加载中…</div></div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="head"><h2 id="stream-title">选一个聊天流</h2><span class="badge" id="stream-chars"></span></div>
+      <p class="hint" id="stream-hint">左边选一个聊天流，就能看到它专属的提示词。这段只对这个会话生效，会盖过群聊或私聊的通用提示词。</p>
+      <div class="field"><div class="label"><span>这个流的专属提示词</span></div>
+        <textarea id="stream-prompt" placeholder="留空保存 = 删除这个流的专属提示词，回到通用人设" disabled></textarea></div>
+      <div class="row end">
+        <input type="text" id="save-name-stream" class="grow" placeholder="存档名，比如：这个群专用" disabled>
+        <button class="act" id="btn-save-stream" disabled>存成存档</button>
+        <button class="act main" id="btn-write-stream" disabled>保存到线上</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="head"><h2>这个流的存档</h2></div>
+      <div class="list" id="list-stream-archives"><div class="empty">选中聊天流后显示</div></div>
+    </div>
+    <div id="detail-stream"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  const api = window.maibot;
+  const state = { scope: 'full', overview: null, detail: null, streams: [], stream: null, streamScopeArchives: [], active: null, timer: null };
+  const $ = (id) => document.getElementById(id);
+
+  function toast(message, isError) {
+    const node = $('toast');
+    node.textContent = message;
+    node.className = isError ? 'show err' : 'show';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { node.className = ''; }, isError ? 4200 : 2400);
+  }
+
+  function escapeHtml(text) {
+    return String(text == null ? '' : text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function clip(text, limit) {
+    const value = String(text == null ? '' : text);
+    return value.length > limit ? value.slice(0, limit) + '…' : value;
+  }
+
+  async function call(kind, name, args) {
+    try {
+      const result = kind === 'query'
+        ? await api.query(name, args || {})
+        : await api.action(name, args || {});
+      return result;
+    } catch (error) {
+      toast(error && error.message ? error.message : '调用失败', true);
+      throw error;
+    }
+  }
+
+  // ==== 渲染 ====
+
+  function renderOverview(data) {
+    state.overview = data;
+    const live = data.live || {};
+    const summary = live.summary || {};
+    const personality = live.personality || {};
+    const replyStyle = live.reply_style || {};
+
+    $('live-stat').innerHTML =
+      '<span>名字 <b>' + escapeHtml((live.bot || {}).nickname || '—') + '</b></span>' +
+      '<span>人格 <b>' + (summary.personality_chars || 0) + '</b> 字</span>' +
+      '<span>群聊通用 <b>' + (summary.group_chars || 0) + '</b> 字</span>' +
+      '<span>聊天气泡 <b>' + (summary.chat_prompt_count || 0) + '</b> 条</span>' +
+      '<span>合计 <b>' + (summary.total_chars || 0) + '</b> 字</span>';
+    $('live-nickname').value = (live.bot || {}).nickname || '';
+    $('pv-personality').textContent = personality.personality || '（空）';
+    $('pv-behavior').textContent = personality.behavior_style || '（空）';
+    $('pv-reply').textContent = personality.reply_style || '（空）';
+    $('pv-group').textContent = replyStyle.group_chat_prompt || '（空）';
+    $('pv-private').textContent = replyStyle.private_chat_prompts || '（空）';
+    $('pv-group-live').textContent = replyStyle.group_chat_prompt || '（空）';
+    $('group-chars').textContent = (replyStyle.group_chat_prompt || '').length + ' 字';
+
+    const counts = data.counts || {};
+    $('count-full').textContent = (counts.full || 0) + ' 份';
+    $('count-group').textContent = (counts.group || 0) + ' 份';
+  }
+
+  function archiveItem(item, onClick, active) {
+    const button = document.createElement('button');
+    button.className = 'item';
+    button.type = 'button';
+    if (active) button.setAttribute('aria-current', 'true');
+    const summary = item.summary || {};
+    let meta = (item.saved_at || '').replace('T', ' ');
+    if (item.scope === 'full') {
+      meta += ' · 共 ' + (summary.total_chars || 0) + ' 字';
+    } else if (item.scope === 'group') {
+      meta += ' · ' + (summary.chars || 0) + ' 字';
+    } else if (item.scope === 'stream') {
+      meta += ' · ' + (summary.target_label || '') + ' · ' + (summary.chars || 0) + ' 字';
+    }
+    const note = item.note ? '<div class="meta">' + escapeHtml(clip(item.note, 60)) + '</div>' : '';
+    button.innerHTML =
+      '<div class="name">' + escapeHtml(item.name) +
+      (item.name.indexOf('_应用前自动备份') === 0 ? ' <span class="badge">自动备份</span>' : '') +
+      '</div><div class="meta">' + escapeHtml(meta) + '</div>' + note;
+    button.addEventListener('click', () => onClick(item));
+    return button;
+  }
+
+  async function loadList(scope) {
+    const host = $('list-' + scope);
+    if (!host) return;
+    try {
+      const data = await call('query', 'persona_list', { scope });
+      const archives = data.archives || [];
+      host.innerHTML = '';
+      if (scope === 'stream') {
+        $('count-stream').textContent = archives.length + ' 份';
+        if (!archives.length) {
+          host.innerHTML = '<div class="empty">还没有聊天流人设存档</div>';
+          return;
+        }
+        archives.forEach((item) => host.appendChild(archiveItem(item, () => showDetail(item.name, 'stream'), state.detail && state.detail.name === item.name)));
+        return;
+      }
+      if (!archives.length) {
+        host.innerHTML = '<div class="empty">还没有存档。在右边填个名字，把现在这版存下来。</div>';
+        return;
+      }
+      archives.forEach((item) => host.appendChild(archiveItem(item, () => showDetail(item.name, scope), state.detail && state.detail.name === item.name)));
+    } catch (error) {
+      host.innerHTML = '<div class="empty">读取失败</div>';
+    }
+  }
+
+  function diffTable(diffs) {
+    if (!diffs.length) return '<p class="hint">与线上的当前人设完全一致。</p>';
+    const rows = diffs.map((item) => {
+      const isText = item.archive.length > 40 || item.live.length > 40;
+      const cell = (value, cls) => isText
+        ? '<td class="val ' + cls + '">' + escapeHtml(clip(value, 180)) + '</td>'
+        : '<td class="val ' + cls + '">' + escapeHtml(value) + '</td>';
+      return '<tr><td>' + escapeHtml(item.label || item.path) + '</td>' + cell(item.archive, 'new') + cell(item.live, 'old') + '</tr>';
+    }).join('');
+    return '<table class="diff"><thead><tr><th>字段</th><th>存档里</th><th>线上现在</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  async function showDetail(name, scope) {
+    try {
+      const data = await call('query', 'persona_detail', { name });
+      state.detail = data;
+      const target = $('detail-' + (scope === 'stream' ? 'stream' : scope));
+      const persona = data.persona || {};
+      let body = '<div class="card"><div class="head"><h2>存档「' + escapeHtml(data.name) + '」</h2>' +
+        '<span class="badge">' + escapeHtml(data.scope_label || '') + '</span></div>' +
+        '<p class="hint">保存于 ' + escapeHtml((data.saved_at || '').replace('T', ' ')) +
+        (data.note ? ' · ' + escapeHtml(data.note) : '') + '</p>' +
+        '<h2 style="margin-top:14px">这份存档与线上的差异</h2>' + diffTable(data.diff || []) +
+        '<div class="row end" style="margin-top:16px">' +
+        '<select class="mini" id="minutes-' + scope + '" title="切换后多久自动恢复原人设">' +
+        '<option value="0">永久生效</option>' +
+        '<option value="15">15 分钟后恢复</option>' +
+        '<option value="30">30 分钟后恢复</option>' +
+        '<option value="60">1 小时后恢复</option>' +
+        '<option value="180">3 小时后恢复</option>' +
+        '<option value="480">8 小时后恢复</option>' +
+        '</select>' +
+        '<button class="act" id="btn-export-' + scope + '">复制内容</button>' +
+        '<button class="act warn" id="btn-delete-' + scope + '">删除存档</button>' +
+        '<button class="act main" id="btn-apply-' + scope + '">应用这份存档</button></div>';
+
+      if (data.scope === 'full') {
+        body += '<details style="margin-top:14px"><summary>查看存档里的人格与提示词</summary>' +
+          '<div class="field" style="margin-top:10px"><div class="label"><span>人格设定</span></div><pre class="preview">' +
+          escapeHtml((persona.personality || {}).personality || '（空）') + '</pre></div>' +
+          '<div class="field"><div class="label"><span>群聊通用提示词</span></div><pre class="preview">' +
+          escapeHtml(((persona.reply_style || {}).group_chat_prompt) || '（空）') + '</pre></div>' +
+          '<div class="field"><div class="label"><span>私聊通用提示词</span></div><pre class="preview">' +
+          escapeHtml(((persona.reply_style || {}).private_chat_prompts) || '（空）') + '</pre></div></details>';
+      } else if (data.scope === 'group') {
+        body += '<div class="field" style="margin-top:14px"><div class="label"><span>群聊通用提示词</span></div><pre class="preview">' +
+          escapeHtml(((persona.reply_style || {}).group_chat_prompt) || '（空）') + '</pre></div>';
+      } else if (data.scope === 'stream') {
+        const prompts = ((persona.reply_style || {}).chat_prompts) || [];
+        body += '<div class="field" style="margin-top:14px"><div class="label"><span>专属提示词</span></div><pre class="preview">' +
+          escapeHtml((prompts[0] || {}).prompt || '（空）') + '</pre></div>';
+      }
+      body += '</div>';
+      target.innerHTML = body;
+
+      $('btn-apply-' + scope).addEventListener('click', () => {
+        const picker = $('minutes-' + scope);
+        const minutes = picker ? Number(picker.value) : 0;
+        applyArchive(data.name, minutes);
+      });
+      $('btn-delete-' + scope).addEventListener('click', () => deleteArchive(data.name, scope));
+      $('btn-export-' + scope).addEventListener('click', () => copyPersona(persona));
+      // 时长选择器默认跟随插件配置的 default_minutes
+      const picker = $('minutes-' + scope);
+      if (picker && state.active && state.active.default_minutes > 0) {
+        const wanted = String(state.active.default_minutes);
+        if (Array.prototype.some.call(picker.options, (opt) => opt.value === wanted)) {
+          picker.value = wanted;
+        }
+      }
+      if (scope !== 'stream') await loadList(scope);
+    } catch (error) { /* toast 已提示 */ }
+  }
+
+  async function copyPersona(persona) {
+    const text = JSON.stringify(persona, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('已复制到剪贴板');
+    } catch (error) {
+      toast('复制失败，浏览器拒绝了剪贴板权限', true);
+    }
+  }
+
+  async function applyArchive(name, minutes) {
+    // persona_apply 内部按存档自身的 scope 分派，整套/群聊/聊天流都能用它。
+    const args = { name };
+    if (typeof minutes === 'number' && minutes >= 0) args.minutes = minutes;
+    try {
+      const result = await call('action', 'persona_apply', args);
+      toast(result.message || '已切换');
+      await refreshAll();
+      if (state.stream) await openStream(state.stream.stream_id, true);
+    } catch (error) { /* 已提示 */ }
+  }
+
+  async function deleteArchive(name, scope) {
+    if (!confirm('确定删除存档「' + name + '」？删除后无法恢复。')) return;
+    try {
+      const result = await call('action', 'persona_delete', { name });
+      toast(result.message || '已删除');
+      state.detail = null;
+      $('detail-' + scope).innerHTML = '';
+      await refreshAll();
+    } catch (error) { /* 已提示 */ }
+  }
+
+  // ==== 聊天流 ====
+
+  async function loadStreams() {
+    try {
+      const data = await call('query', 'persona_streams', {});
+      state.streams = data.streams || [];
+      const host = $('list-stream');
+      host.innerHTML = '';
+      const withPrompt = state.streams.filter((item) => item.has_prompt).length;
+      $('count-stream').textContent = state.streams.length + ' 个流 · ' + withPrompt + ' 个有专属人设';
+      // 聊天流存档与聊天流列表同栏展示：先列流，再列存档
+      state.streams.forEach((item) => {
+        const button = document.createElement('button');
+        button.className = 'item';
+        button.type = 'button';
+        if (state.stream && state.stream.stream_id === item.stream_id) button.setAttribute('aria-current', 'true');
+        button.innerHTML = '<div class="name">' + escapeHtml(item.label) +
+          (item.has_prompt ? ' <span class="badge on">已定制</span>' : '') + '</div>' +
+          '<div class="meta">' + (item.has_prompt ? (item.prompt_chars + ' 字') : '用通用人设') + '</div>';
+        button.addEventListener('click', () => openStream(item.stream_id));
+        host.appendChild(button);
+      });
+      if (!state.streams.length) host.innerHTML = '<div class="empty">没有找到聊天流</div>';
+    } catch (error) { /* 已提示 */ }
+  }
+
+  async function openStream(streamId, silent) {
+    try {
+      const data = await call('query', 'persona_stream_prompt', { stream_id: streamId });
+      state.stream = data;
+      $('stream-title').textContent = data.label;
+      $('stream-chars').textContent = data.prompt.length + ' 字';
+      $('stream-hint').textContent = data.exists
+        ? '这个流已有专属提示词，会盖过通用人设。留空保存可以删掉它，回到通用人设。'
+        : '这个流目前用通用人设。在这里写点什么，就只对这个会话生效。';
+      const box = $('stream-prompt');
+      box.value = data.prompt || '';
+      box.disabled = false;
+      $('save-name-stream').disabled = false;
+      $('btn-save-stream').disabled = !data.exists;
+      $('btn-write-stream').disabled = false;
+      $('list-stream-archives').innerHTML = '<div class="empty">加载中…</div>';
+      const archives = await call('query', 'persona_list', { scope: 'stream' });
+      const own = (archives.archives || []).filter((item) => {
+        const target = item.target || {};
+        return String(target.platform) === String(data.platform)
+          && String(target.item_id) === String(data.item_id)
+          && String(target.rule_type) === String(data.rule_type);
+      });
+      state.streamScopeArchives = own;
+      const host = $('list-stream-archives');
+      host.innerHTML = '';
+      if (!own.length) {
+        host.innerHTML = '<div class="empty">这个流还没有存档</div>';
+      } else {
+        own.forEach((item) => host.appendChild(archiveItem(item, () => showDetail(item.name, 'stream'), state.detail && state.detail.name === item.name)));
+      }
+      $('detail-stream').innerHTML = '';
+      if (!silent) await loadStreams();
+    } catch (error) { /* 已提示 */ }
+  }
+
+  // ==== 事件绑定 ====
+
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const scope = tab.dataset.scope;
+      state.scope = scope;
+      document.querySelectorAll('.tab').forEach((node) => node.setAttribute('aria-selected', String(node === tab)));
+      ['full', 'group', 'stream'].forEach((name) => { $('panel-' + name).hidden = name !== scope; });
+      state.detail = null;
+      if (scope === 'stream') { loadStreams(); }
+      else { loadList(scope); }
+    });
+  });
+
+  $('btn-save-full').addEventListener('click', async () => {
+    const name = $('save-name-full').value.trim();
+    if (!name) { toast('先填个存档名', true); return; }
+    try {
+      const result = await call('action', 'persona_save_full', { name, note: $('save-note-full').value.trim() });
+      toast(result.message || '已保存');
+      $('save-name-full').value = '';
+      $('save-note-full').value = '';
+      await refreshAll();
+    } catch (error) { /* 已提示 */ }
+  });
+
+  $('btn-save-group').addEventListener('click', async () => {
+    const name = $('save-name-group').value.trim();
+    if (!name) { toast('先填个存档名', true); return; }
+    try {
+      const result = await call('action', 'persona_save_group', { name });
+      toast(result.message || '已保存');
+      $('save-name-group').value = '';
+      await refreshAll();
+      await loadList('group');
+    } catch (error) { /* 已提示 */ }
+  });
+
+  $('btn-write-stream').addEventListener('click', async () => {
+    if (!state.stream) return;
+    try {
+      const result = await call('action', 'persona_set_stream_prompt', {
+        stream_id: state.stream.stream_id,
+        prompt: $('stream-prompt').value,
+      });
+      toast(result.cleared ? '已删除这个流的专属提示词' : ('已保存 ' + result.chars + ' 字，配置会自动热重载'));
+      await openStream(state.stream.stream_id, true);
+      await loadStreams();
+    } catch (error) { /* 已提示 */ }
+  });
+
+  $('btn-save-stream').addEventListener('click', async () => {
+    if (!state.stream) return;
+    const name = $('save-name-stream').value.trim();
+    if (!name) { toast('先填个存档名', true); return; }
+    try {
+      const result = await call('action', 'persona_save_stream', { name, stream_id: state.stream.stream_id });
+      toast(result.message || '已保存');
+      $('save-name-stream').value = '';
+      await openStream(state.stream.stream_id, true);
+    } catch (error) { /* 已提示 */ }
+  });
+
+  function formatRemaining(seconds) {
+    const total = Number(seconds) || 0;
+    if (total <= 0) return '';
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    if (h > 0) return h + ' 小时 ' + m + ' 分';
+    if (m > 0) return m + ' 分钟';
+    return total + ' 秒';
+  }
+
+  function renderActive(active) {
+    state.active = active || {};
+    const bar = $('active-bar');
+    const text = $('active-text');
+    const warn = $('active-warn');
+    const cancelBtn = $('btn-cancel-timer');
+    const restoreBtn = $('btn-restore-now');
+    const on = !!(active && active.active);
+    bar.className = 'active-bar' + (on ? ' on' : '');
+    warn.textContent = '';
+
+    if (!on) {
+      text.innerHTML = '当前生效的是<b>线上原始人设</b>，不是任何存档。';
+      cancelBtn.hidden = true;
+      restoreBtn.hidden = true;
+      return;
+    }
+
+    let html = '正在使用存档 <b>' + escapeHtml(active.archive || '') + '</b>' +
+      '（' + escapeHtml(active.scope_label || '') + '）';
+    if (active.timed) {
+      if (active.expired) {
+        html += ' · 限时已到点，即将恢复';
+      } else {
+        html += ' · 还剩 <b>' + formatRemaining(active.remaining_seconds) + '</b> 自动恢复';
+      }
+    } else {
+      html += ' · 永久生效';
+    }
+    text.innerHTML = html;
+
+    if (active.drifted && active.drifted_hint) {
+      warn.textContent = active.drifted_hint;
+    }
+    cancelBtn.hidden = !active.timed;
+    restoreBtn.hidden = !active.backup;
+
+    if (active.timed && !state.timer) {
+      state.timer = setInterval(refreshActiveOnly, 30000);
+    }
+    if (!active.timed && state.timer) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+  }
+
+  async function refreshActiveOnly() {
+    try {
+      const active = await call('query', 'persona_active', {});
+      renderActive(active);
+    } catch (error) { /* 已提示 */ }
+  }
+
+  async function refreshAll() {
+    try {
+      const data = await call('query', 'persona_overview', {});
+      renderOverview(data);
+      renderActive(data.active);
+      await loadList('full');
+      await loadList('group');
+    } catch (error) { /* 已提示 */ }
+  }
+
+  $('btn-cancel-timer').addEventListener('click', async () => {
+    try {
+      const result = await call('action', 'persona_cancel_timer', {});
+      toast(result.message || '已取消限时');
+      await refreshAll();
+    } catch (error) { /* 已提示 */ }
+  });
+
+  $('btn-restore-now').addEventListener('click', async () => {
+    if (!confirm('会把线上人设切回应用这份存档之前的样子，继续吗？')) return;
+    try {
+      const result = await call('action', 'persona_restore_now', {});
+      toast(result.message || '已恢复');
+      await refreshAll();
+      if (state.stream) await openStream(state.stream.stream_id, true);
+    } catch (error) { /* 已提示 */ }
+  });
+
+  api.ready.then(() => {
+    refreshAll();
+    loadStreams();
+  });
+})();
+</script>
+</body>
+</html>

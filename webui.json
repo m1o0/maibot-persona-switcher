@@ -1,0 +1,228 @@
+{
+  "schema_version": 2,
+  "required_capabilities": [
+    "custom_pages",
+    "structured_arguments"
+  ],
+  "workspace_title": "人设存档与切换",
+  "pages": [
+    {
+      "id": "persona",
+      "title": "人设存档与切换",
+      "description": "把当前人设存成存档，随时切换回来；支持整套人设、群聊人设和单个聊天流人设。",
+      "placement": "workspace",
+      "icon": "settings",
+      "mode": "custom",
+      "entry": "webui/index.html",
+      "layout": "document",
+      "queries": {
+        "persona_overview": {
+          "api": "persona_overview",
+          "version": "1",
+          "parameters": {}
+        },
+        "persona_active": {
+          "api": "persona_active",
+          "version": "1",
+          "parameters": {}
+        },
+        "persona_list": {
+          "api": "persona_list",
+          "version": "1",
+          "parameters": {
+            "scope": {
+              "type": "string",
+              "required": false,
+              "max_length": 20
+            }
+          }
+        },
+        "persona_detail": {
+          "api": "persona_detail",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            }
+          }
+        },
+        "persona_streams": {
+          "api": "persona_streams",
+          "version": "1",
+          "parameters": {}
+        },
+        "persona_stream_prompt": {
+          "api": "persona_stream_prompt",
+          "version": "1",
+          "parameters": {
+            "stream_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            }
+          }
+        }
+      },
+      "actions": {
+        "persona_save_full": {
+          "api": "persona_save_full",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "note": {
+              "type": "string",
+              "required": false,
+              "max_length": 200
+            }
+          }
+        },
+        "persona_save_group": {
+          "api": "persona_save_group",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "note": {
+              "type": "string",
+              "required": false,
+              "max_length": 200
+            }
+          }
+        },
+        "persona_save_stream": {
+          "api": "persona_save_stream",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "stream_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            },
+            "note": {
+              "type": "string",
+              "required": false,
+              "max_length": 200
+            }
+          }
+        },
+        "persona_set_stream_prompt": {
+          "api": "persona_set_stream_prompt",
+          "version": "1",
+          "parameters": {
+            "stream_id": {
+              "type": "string",
+              "required": true,
+              "max_length": 128
+            },
+            "prompt": {
+              "type": "string",
+              "required": true,
+              "max_length": 20000
+            }
+          }
+        },
+        "persona_apply": {
+          "api": "persona_apply",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "minutes": {
+              "type": "integer",
+              "required": false
+            }
+          },
+          "confirmation": "会先把当前人设自动存成一份备份，再写入这份存档。"
+        },
+        "persona_apply_group": {
+          "api": "persona_apply_group",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "minutes": {
+              "type": "integer",
+              "required": false
+            }
+          },
+          "confirmation": "会先把当前群聊人设自动存成一份备份，再写入这份存档。"
+        },
+        "persona_apply_stream": {
+          "api": "persona_apply_stream",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "minutes": {
+              "type": "integer",
+              "required": false
+            }
+          },
+          "confirmation": "会先把这个流当前的专属提示词存成一份备份，再写入这份存档。"
+        },
+        "persona_restore_now": {
+          "api": "persona_restore_now",
+          "version": "1",
+          "parameters": {},
+          "confirmation": "会把线上人设切回应用这份存档之前的样子。"
+        },
+        "persona_cancel_timer": {
+          "api": "persona_cancel_timer",
+          "version": "1",
+          "parameters": {}
+        },
+        "persona_rename": {
+          "api": "persona_rename",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            },
+            "new_name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            }
+          }
+        },
+        "persona_delete": {
+          "api": "persona_delete",
+          "version": "1",
+          "parameters": {
+            "name": {
+              "type": "string",
+              "required": true,
+              "max_length": 60
+            }
+          },
+          "confirmation": "删除后无法恢复，确定要删这份存档吗？"
+        }
+      }
+    }
+  ]
+}

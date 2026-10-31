@@ -1,0 +1,27 @@
+# 运行时生成的配置（含你的私人设定，不进仓库）
+config.toml
+config.toml.bak*
+*.bak
+
+# 人设存档目录：里面有你的聊天流 ID 和实际人设内容
+archives/
+
+# 生效状态（记录当前用的是哪份存档）
+active_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 编辑器与系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/
